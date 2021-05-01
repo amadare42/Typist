@@ -1,0 +1,109 @@
+.texts-screen {
+    display: flex;
+    height: 80vh;
+    flex-direction: row;
+    width: 90vw;
+    font-size: 2vmin;
+}
+
+.selected-text-container {
+    position: relative;
+    max-height: 100vh;
+    width: 65%;
+}
+
+.texts-screen .selected-text {
+    height: 100%;
+    overflow: hidden;
+}
+
+.texts-screen .item-container {
+    display: flex;
+    max-height: 100vh;
+    width: 35%;
+    flex-direction: column;
+    overflow-y: scroll;
+}
+
+.texts-screen .item-container .item {
+    padding: 1vmin;
+    margin-bottom: 1vh;
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+}
+
+.texts-screen .item-container .item.active {
+    background: aliceblue;
+    border-right: 1vmin solid #61798C;
+}
+
+.texts-screen .item-container .item:hover {
+    background: aliceblue;
+}
+
+.texts-screen .item-container .item .controls {
+    display: flex;
+    flex-direction: column;
+    margin-right: 1.5vmax;
+}
+
+.texts-screen button {
+    margin-top: 2px;
+}
+
+.texts-screen .item-container .item .header {
+    font-weight: bold;
+    border-bottom: 1px solid #61798C;
+}
+
+.texts-screen .item-container .item .preview {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 3.5em;
+}
+
+.hr {
+    width: 100%;
+    border-bottom: 1px solid black;
+}
+
+.texts-screen .saved {
+    pointer-events: none;
+    position: absolute;
+    z-index: 100;
+    right: 0;
+    top: 0;
+    opacity: 0;
+}
+
+.texts-screen .editable-text {
+    padding-left: 2vmin;
+    padding-top: 2vmin;
+    padding-right: 2vmin;
+    resize: none;
+    position: relative;
+    min-height: 100%;
+    width: 100%;
+}
+.texts-screen .saved.visible {
+    animation: blink 3000ms;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 0;
+    }
+    25% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 1;
+    }
+    75% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}

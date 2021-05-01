@@ -1,0 +1,79 @@
+.analysis-screen {
+    display: flex;
+    height: 80vh;
+    flex-direction: row;
+    width: 90vw;
+    font-size: 2vmin;
+}
+
+.analysis-screen .selected-sequence {
+    max-height: 100vh;
+    width: 65%;
+    overflow-y: auto;
+    padding: 2vmin;
+}
+
+.analysis-screen .item-container {
+    display: flex;
+    max-height: 100vh;
+    width: 35%;
+    flex-direction: column;
+    overflow-y: scroll;
+}
+
+.analysis-screen .item-container .item {
+    padding: 1vmin;
+    margin-bottom: 1vh;
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+}
+
+.analysis-screen .item-container .item.active {
+    background: aliceblue;
+    border-right: 1vmin solid #61798C;
+}
+
+.analysis-screen .item-container .item:hover {
+    background: aliceblue;
+}
+
+.analysis-screen .item-container .item .controls {
+    display: flex;
+    flex-direction: row;
+    margin-right: 1.5vmax ;
+}
+
+.analysis-screen .item-container .item .controls button {
+    cursor: pointer;
+    opacity: 0.3;
+    background: transparent;
+    border: none;
+    height: 3vh;
+    width: 3vh;
+}
+
+.analysis-screen .item-container .item:hover .controls button {
+     opacity: .8;
+}
+
+.analysis-screen .item-container .item .controls button:hover {
+    /*background:  #61798C;*/
+    opacity: 1;
+ }
+
+.analysis-screen .part:hover {
+    margin-bottom: -1px;
+    border-bottom: 1px solid red;
+}
+
+.analysis-screen .item-container .item .header {
+    font-weight: bold;
+}
+
+.analysis-screen .item-container .item .preview {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 3.5em;
+}
+
