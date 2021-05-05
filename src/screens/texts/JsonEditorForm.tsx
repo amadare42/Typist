@@ -1,7 +1,5 @@
 import * as React from 'react';
 import { JSONEditor } from '@json-editor/json-editor/dist/jsoneditor';
-import { PatternsModel } from '../../domain/db';
-
 
 JSONEditor.defaults.options.theme = 'spectre';
 JSONEditor.defaults.options.iconlib = "spectre";
@@ -11,8 +9,19 @@ interface Props {
     onSave: (config: TextConfiguration) => void
 }
 
+export interface ReplacementPatternConfiguration {
+    search: string,
+    replace: string
+}
+
+export interface PatternsConfiguration {
+    ignorePatterns: string[],
+    breakPatterns: string[],
+    replacementPatterns: ReplacementPatternConfiguration[]
+}
+
 export interface TextConfiguration {
-    patterns: PatternsModel,
+    patterns: PatternsConfiguration,
     threshold: number
 }
 
@@ -29,13 +38,23 @@ const schema = {
                 },
                 replacementPatterns: {
                     title: 'Patterns to replace',
+                    format: "table",
                     type: 'array',
                     items: {
-                        type: 'array',
-                        title: 'replacement',
-                        items: [{ type: 'string', title: 'Search', minLength: 1 }, { type: 'string', title: 'Replace', minLength: 1 }],
-                        additionalItems: false,
-                        minItems: 2
+                        type: 'object',
+                        title: 'Replacement',
+                        properties: {
+                            search: {
+                                type: 'string',
+                                title: 'Search',
+                                minLength: 1
+                            },
+                            replace: {
+                                type: 'string',
+                                title: 'Replace',
+                                minLength: 1
+                            }
+                        }
                     }
                 },
                 breakPatterns: {

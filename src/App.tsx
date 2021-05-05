@@ -1,8 +1,6 @@
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { KeyboardHeatmap } from './screens/heatmap/KeyboardHeatmap';
-import { AnalysisPage } from './screens/analysis/AnalysisPage';
-import { Pager } from './screens/typing/Pager';
 import { AnalysisScreen } from './screens/analysis/AnalysisScreen';
 import classnames from 'classnames';
 import { TextsScreen } from './screens/texts/TextsScreen';

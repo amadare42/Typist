@@ -2,6 +2,7 @@ import * as _ from 'lodash';
 import { inputModel, KeyPressDataModel } from './db';
 import { BaseDbService } from './baseDbService';
 import { Dictionary } from 'lodash';
+import { areNeighbors } from '../screens/heatmap/keymap';
 
 interface KeyPressInfo {
     delay: number,
@@ -9,25 +10,59 @@ interface KeyPressInfo {
     character: string
 }
 
+export enum PartType {
+    Correct,
+    Erased,
+    Wrong
+}
+
+export enum TypoType {
+    WrongKey,
+    WrongNeighborKey,
+    WrongOrder,
+    Duplication,
+    MissedKey,
+    WrongCase = 5
+}
+
+export interface TyposInfo {
+    [char: string]: TyposSummaryReport;
+}
+
+export type TyposSummaryReport = {
+    typeTypes:  { [key in TypoType]?: number };
+    typoChars: {  [char: string]: number }
+};
+
 export interface SequencePart {
     text: string,
     expected?: string,
-    entered?: string,
-    isCorrect: boolean
+    wpm?: number,
+    type: PartType
 }
 
 export interface SequenceInfo {
     text: string,
-    sequenceId: number
+    sequenceId: number,
+    sequenceName: string
 }
 
 export interface KeyInfo {
     ratio: number,
     total: number,
-    misstypes: number
+    misstypes: number,
+    // typos: TyposSummaryReport
 }
 
 export const BACKSPACE = 'BKSP';
+
+function calcWpm(chars: number | string, timeMs: number) {
+    let len = typeof chars == 'number' ? chars : chars.length;
+    if (!timeMs || !len) return 0;
+
+    let msPerChar = timeMs / len;
+    return _.floor(((60 * 1000) / msPerChar) / 5);
+}
 
 
 export class StatisticsService extends BaseDbService {
@@ -36,7 +71,7 @@ export class StatisticsService extends BaseDbService {
     private seqNumber: number = 0;
     private seqHasPresses: boolean = false;
 
-    newSequence() {
+    newSequence(textId: number, textName: string) {
         if (!this.seqHasPresses) {
             this.removeSequence(this.sequence);
         }
@@ -47,7 +82,9 @@ export class StatisticsService extends BaseDbService {
 
         this.doRq(db => db.put('sequences', {
             id: this.sequence,
-            startDate: this.sequence
+            startDate: this.sequence,
+            textId,
+            textName
         }))
     }
 
@@ -64,15 +101,86 @@ export class StatisticsService extends BaseDbService {
         });
     }
 
+    async getTotalTyposClassification() {
+        const presses = await this.getPresses();
+        const report: TyposInfo = {};
+
+        for (let pressIndex = 0; pressIndex < presses.length; pressIndex++) {
+            const press = presses[pressIndex];
+            if (press.char == BACKSPACE) continue;
+
+            if (press.expected != press.char) {
+                const iterate = (omit: number = 1) => _.chain(presses)
+                    .drop(pressIndex + omit)
+                    .filter(p => p.char != BACKSPACE);
+
+                function process() {
+
+                    // wrong case
+                    if (press.expected.toLowerCase() == press.char.toLowerCase()) {
+                        return TypoType.WrongCase;
+                    }
+
+                    // duplication
+                    const isDuplicated = iterate(1).take(1).every(p => {
+                        return p.char == press.char;
+                    }).value();
+                    if (isDuplicated) {
+                        pressIndex++;
+                        return TypoType.Duplication;
+                    }
+
+                    const isWrongOrder = iterate().take(1).every(p => p.char == press.expected && p.expected == press.char).value();
+                    if (isWrongOrder) {
+                        pressIndex++;
+                        return TypoType.WrongOrder;
+                    }
+
+                    let nextPresses = iterate(0).take(3).value();
+                    const isMissedKey = nextPresses.every((p, idx) => {
+                        if (!idx) return true;
+                        return p.expected == nextPresses[idx - 1].char;
+                    });
+                    if (isMissedKey) {
+                        pressIndex += 2;
+                        return TypoType.MissedKey;
+                    }
+
+                    if (areNeighbors(press.expected, press.char)) {
+                        return TypoType.WrongNeighborKey;
+                    }
+
+                    return TypoType.WrongKey;
+                }
+
+                let expected = press.expected.toLowerCase();
+                let type = process();
+                let info = report[expected] || (report[expected] = { typeTypes: {}, typoChars: {} });
+                info.typeTypes[type] = (info[type] || 0) + 1;
+                info.typoChars[press.char] = (info.typoChars[press.char] || 0) + 1;
+            }
+        }
+
+        return report;
+    }
+
 
     getSequencesWithPresses = async () => {
-        const presses = await this.getPresses();
-        return _
+        const presses = await this.getPressesBkspCompensated();
+        const promises = _
             .chain(presses)
             .groupBy('sequenceId')
             .orderBy(p => p[0].sequenceId, 'desc')
-            .map(p => ({ sequenceId: p[0].sequenceId, text: this.getText(p)}) as SequenceInfo)
+            .take(500)
+            .map(p => [p, this.doRq(db => db.get('sequences', p[0].sequenceId))] as const)
+            .map(async ([p, sequencePromise]) => ({
+                sequenceId: p[0].sequenceId,
+                text: this.getText(p),
+                sequenceName: (await sequencePromise).textName
+            }) as SequenceInfo)
             .value();
+        let sequences = await Promise.all(promises);
+        return sequences.filter(s => s.text.length > 0);
     }
 
     async removeSequence(sequenceId: number) {
@@ -102,8 +210,12 @@ export class StatisticsService extends BaseDbService {
             .join('');
     }
 
+    async getTextForSequence(id: number) {
+        return this.getText(await this.getPressesBkspCompensated(id));
+    }
+
     async getSequence(id: number) {
-        const presses = await this.getPressesBkspCompensated();
+        const presses = await this.getAllPresses();
         let seq = _.chain(presses)
             .filter(p => p.sequenceId == id)
             .orderBy('sequenceNumber', 'asc')
@@ -111,45 +223,98 @@ export class StatisticsService extends BaseDbService {
 
         if (!seq) return [];
 
-        const getChar = (k: KeyPressDataModel) => k.expected != k.char ? `${k.expected}[${k.char}]` : k.expected;
-
-        let c: SequencePart = {
-            text: getChar(seq[0]),
-            isCorrect: seq[0].expected == seq[0].char
+        let part: SequencePart = {
+            text: seq[0].char,
+            expected: seq[0].expected,
+            // assuming first press cannot be backspace
+            type: seq[0].char == seq[0].expected ? PartType.Correct : PartType.Wrong
         }
-        let result: SequencePart[] = [c];
+        const parts: SequencePart[] = [part];
+        let charactersToErase = 0;
+        let correctDuration = 0;
 
         for (let i = 1; i < seq.length; i++) {
-            let isCorrect = seq[i].expected == seq[i].char;
-            if (c.isCorrect == isCorrect) {
-                c.text += getChar(seq[i])
-                c.expected = (c.expected || '') + seq[i].expected;
-                c.entered = (c.entered || '') + seq[i].char;
-            } else {
-                c = {
-                    text: getChar(seq[i]),
-                    expected: seq[i].expected,
-                    entered: seq[i].char,
-                    isCorrect: seq[i].expected == seq[i].char
+            const press = seq[i];
+
+            // Erased
+            if (press.char == BACKSPACE) {
+                charactersToErase++;
+                continue;
+            }
+            else if (charactersToErase) {
+                for (let partIdx = parts.length - 1; partIdx >= 0 && charactersToErase > 0; partIdx--) {
+                    let currentPart = parts[partIdx];
+                    if (currentPart.type == PartType.Erased) continue;
+
+                    // split part
+                    if (currentPart.text.length > charactersToErase) {
+                        let textLeft = currentPart.text.substring(0, currentPart.text.length - charactersToErase);
+                        let textRight = currentPart.text.substring(currentPart.text.length - charactersToErase);
+                        parts.splice(partIdx + 1, 0, part = {
+                            type: PartType.Erased,
+                            text: textRight
+                        });
+                        currentPart.text = textLeft;
+                        charactersToErase = 0;
+                    }
+                    else {
+                        // convert part
+                        currentPart.type = PartType.Erased;
+                        charactersToErase -= currentPart.text.length;
+                    }
                 }
-                result.push(c);
+            }
+
+            // entered character
+            const type = press.char == press.expected ? PartType.Correct : PartType.Wrong;
+            // concat
+            if (part.type == type) {
+                part.text += press.char;
+                part.expected += press.expected
+                if (type == PartType.Correct) correctDuration += press.delay;
+            } else {
+                if (part.type == PartType.Correct) {
+                    part.wpm = calcWpm(part.text, correctDuration)
+                    correctDuration = 0;
+                }
+                if (type == PartType.Correct) {
+                    correctDuration = press.delay;
+                }
+                // create new
+                parts.push(part = {
+                    type,
+                    text: press.char,
+                    expected: press.expected
+                });
             }
         }
 
-        return result;
+        // in case last block was correct, wpm will not be populated
+        const last = parts[parts.length - 1];
+        if (last.type == PartType.Correct && !last.wpm) {
+            last.wpm = calcWpm(last.text, correctDuration);
+        }
+
+        return parts;
     }
 
     async getFailmap(): Promise<Dictionary<KeyInfo>> {
         const keypresses = await this.getPresses();
+        // const typos = await this.getTotalTyposClassification();
 
         return _
             .chain(keypresses)
             .groupBy(k => k.expected.toLowerCase())
             .map(p => {
                 let key = p[0].expected.toLowerCase();
-                const misstypes =  _.sumBy(p, p => Number(p.expected != p.char));
-                let info: KeyInfo = { misstypes, total: p.length, ratio: misstypes / p.length };
-                return [ key, info ] as const;
+                const misstypes = _.sumBy(p, p => Number(p.expected != p.char));
+                let info: KeyInfo = {
+                    misstypes,
+                    total: p.length,
+                    ratio: misstypes / p.length,
+                    // typos: typos[p[0].expected] || { typoChars: {}, typeTypes: {} }
+                };
+                return [key, info] as const;
             })
             .fromPairs()
             .value();
@@ -187,7 +352,7 @@ export class StatisticsService extends BaseDbService {
                     }
                 }
                 // char
-                word.push(`[${p.char}]`);
+                word.push(`[${ p.char }]`);
                 // next
                 for (let i = idx + 1; i < seq.length && (i - idx) < 20; i++) {
                     let seqChar = seq[i];
@@ -202,7 +367,7 @@ export class StatisticsService extends BaseDbService {
 
         console.log(incorrectPresses.map(p => {
             const cases = problemWords[p[0].expected].join('\n  ');
-            return `${ p[0].char }: ${ p.length }\n${cases}`;
+            return `${ p[0].char }: ${ p.length }\n${ cases }`;
         }).join('\n'));
     }
 
@@ -211,14 +376,25 @@ export class StatisticsService extends BaseDbService {
         return this.doRq(db => db.getAll('keypresses').then(r => r.filter(a => a.char != BACKSPACE)));
     }
 
-    private async getPressesBkspCompensated() {
+    public async getAllPresses(): Promise<KeyPressDataModel[]>;
+    public async getAllPresses(sequenceId: number): Promise<KeyPressDataModel[]>;
+    async getAllPresses(sequenceId?: number) {
+        return this.doRq(db => sequenceId
+            ? db.getAllFromIndex('keypresses', 'by-sequenceId', sequenceId)
+            : db.getAll('keypresses')
+        );
+    }
 
-        const presses = await this.doRq(db => db.getAll('keypresses'));
+    private async getPressesBkspCompensated(): Promise<KeyPressDataModel[]>;
+    private async getPressesBkspCompensated(sequenceId: number): Promise<KeyPressDataModel[]>;
+    private async getPressesBkspCompensated(sequenceId?: number): Promise<KeyPressDataModel[]> {
+
+        const presses = await this.getAllPresses(sequenceId);
         const result: KeyPressDataModel[] = [];
         presses.forEach(p => {
             if (p.char != BACKSPACE) {
                 result.push(p)
-            } else {
+            } else if (result.length && result[result.length - 1].sequenceId == p.sequenceId) {
                 result.pop();
             }
         })
@@ -226,5 +402,4 @@ export class StatisticsService extends BaseDbService {
     }
 }
 
-export const statisctisService = new StatisticsService()
-statisctisService.newSequence();
+export const statisctisService = new StatisticsService();

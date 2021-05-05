@@ -1,10 +1,11 @@
 import * as React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TypingPage } from './TypingPage';
 import * as _ from 'lodash';
 import { statisctisService } from '../../domain/statisticsService';
-import { findPatterns, findRanges } from './textParsing';
+import { findRanges } from './textParsing';
 import { ActiveTextModel, textsService } from '../../domain/textsService';
+import { ReplacementPatternModel } from '../../domain/db';
 
 interface Props {
     textModel: ActiveTextModel
@@ -39,38 +40,54 @@ export function Pager(props: Props) {
         });
     });
 
-    const onChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    // will mount
+    useEffect(() => statisctisService.newSequence(props.textModel.id, props.textModel.name), []);
+
+    const changePage = useCallback((page: number, stateMixin: Partial<State> = {}) => {
+        setState(state => {
+            savePosition(props.textModel.id, state.pages, page);
+            statisctisService.newSequence(props.textModel.id, props.textModel.name);
+            return { ...state, ...stateMixin, currentPage: page, pageInput: (page + 1).toString() };
+        });
+    }, [props]);
+
+    const onPageInputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         let page = parseInt(e.target.value);
         if (!page || isNaN(page) || page < 1 || page > state.pages.length) {
             setState(state => ({ ...state, pageInput: e.target.value }));
             return;
         }
-        setState({ ...state, currentPage: page - 1, pageInput: e.target.value });
-        savePosition(props.textModel.id, state.pages, page - 1);
-        statisctisService.newSequence();
+        changePage(page - 1);
     }, []);
 
     const nextPage = useCallback(() => {
-        let page = currentPage + 1 >= pages.length ? currentPage : currentPage + 1;
-        setState(state => ({
-            ...state,
-            currentPage: page,
-            pageInput: (page + 1).toString()
-        }));
-        savePosition(props.textModel.id, state.pages,page);
-        statisctisService.newSequence();
+        changePage(currentPage + 1 >= pages.length ? currentPage : currentPage + 1);
     },[state]);
-    // TODO: please DRY
     const prevPage = useCallback(() => {
-        let page = currentPage - 1 < 0 ? currentPage : currentPage - 1;
-        setState(state => ({
-            ...state,
-            currentPage: page,
-            pageInput: (page + 1).toString()
-        }));
-        savePosition(props.textModel.id, state.pages,page);
-        statisctisService.newSequence();
+        changePage(currentPage - 1 < 0 ? currentPage : currentPage - 1);
     },[state]);
+    const noFocus = useCallback((e: React.MouseEvent<HTMLElement>) => {
+        console.log('focus');
+        e.nativeEvent.stopImmediatePropagation();
+        e.preventDefault();
+        e.stopPropagation();
+    }, []);
+
+    useEffect(() => {
+        let keyUp = k => {
+            if (k.key == 'ArrowLeft') {
+                k.preventDefault();
+                prevPage();
+            } else if (k.key == 'ArrowRight') {
+                k.preventDefault();
+                nextPage();
+            }
+        };
+        document.addEventListener('keyup', keyUp);
+        return () => {
+            document.removeEventListener('keyup', keyUp);
+        }
+    }, [prevPage, nextPage]);
 
     const { pages, currentPage } = state;
     const percentage = useMemo(() => {
@@ -93,14 +110,21 @@ export function Pager(props: Props) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
             <div>
                 Page
-                <button onClick={prevPage} className={'btn'}>{"<"}</button>
-                <input className={'page-input'} value={state.pageInput} onChange={onChange} /> / { state.pages.length }
-                <button onClick={nextPage} className={'btn'}>{">"}</button>
+                <button onClick={prevPage} onMouseDown={noFocus} className={'btn'}>{"<"}</button>
+                <input className={'page-input'} value={state.pageInput} onChange={onPageInputChanged} /> / { state.pages.length }
+                <button onClick={nextPage} onMouseDown={noFocus} className={'btn'}>{">"}</button>
             </div>
             <span>{ pages[currentPage].length } chars</span>
             <span>{percentage}%</span>
         </div>
     </div>
+}
+
+function mapReplacement(replacement: ReplacementPatternModel) {
+    return [
+        replacement.search,
+        replacement.replace.replace(/\\n/g, '\n')
+    ] as const
 }
 
 function splitToPages(textModel: ActiveTextModel) {
@@ -110,7 +134,7 @@ function splitToPages(textModel: ActiveTextModel) {
     const pages: string[] = [];
     let activePage = 0;
 
-    replacementPatterns.forEach(([pattern, replacement]) => {
+    replacementPatterns.map(mapReplacement).forEach(([pattern, replacement]) => {
         text = text.replace(new RegExp(pattern, 'gm'), replacement)
     });
 

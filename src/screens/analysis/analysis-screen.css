@@ -71,9 +71,18 @@
     font-weight: bold;
 }
 
+.analysis-screen .item-container .item .header-subtext {
+    font-size: 1.6vmin;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .analysis-screen .item-container .item .preview {
     overflow: hidden;
     text-overflow: ellipsis;
-    height: 3.5em;
+    line-height: 2.5vmin;
+    max-height: 5vmin;
+    min-height: 5vmin;
 }
 

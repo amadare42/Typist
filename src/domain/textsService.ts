@@ -3,6 +3,7 @@ import { BaseDbService } from './baseDbService';
 
 export interface ActiveTextModel {
     id: number,
+    name: string,
     text: string,
     position: number,
     patterns: PatternsModel,
@@ -56,6 +57,7 @@ class TextsService extends BaseDbService{
 
         return {
             id,
+            name: text.name,
             text: text.text,
             position: this.getPosition(id),
             patterns: text.patterns,

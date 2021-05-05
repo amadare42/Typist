@@ -43,7 +43,6 @@ export function Stats(props: Props) {
     }, [props.timestamps]);
 
     const { charPerMinute, wpm } = calcWpm(props);
-    // 20 - 500
     const delays = calcDelays(props);
     return <>
         <div style={{display: 'flex', justifyContent: 'space-between', background: props.completedTime ? '#33663322' : 'transparent' }} ref={divRef} >
@@ -53,7 +52,6 @@ export function Stats(props: Props) {
         </div>
 
         <SummaryChart delays={delays} heatmapWidth={width} />
-        <hr/>
     </>
 }
 

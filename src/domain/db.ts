@@ -5,7 +5,10 @@ import { textsService } from './textsService';
 export interface AppDbSchema extends DBSchema {
     keypresses: {
         key: number,
-        value: KeyPressDataModel
+        value: KeyPressDataModel,
+        indexes: {
+            'by-sequenceId': number
+        }
     },
     sequences: {
         key: number,
@@ -32,7 +35,10 @@ export interface KeyPressDataModel {
 
 export interface SeqModel {
     id: number,
-    startDate: number
+
+    startDate: number,
+    textId: number,
+    textName: string
 }
 
 export interface TextModel {
@@ -44,16 +50,15 @@ export interface TextModel {
     pageThreshold: number
 }
 
-export interface PatternModel {
-    name: string,
-    pattern: string,
-    replacement?: string
-}
-
 export interface PatternsModel {
     ignorePatterns: string[],
     breakPatterns: string[],
-    replacementPatterns: [string, string][]
+    replacementPatterns:ReplacementPatternModel[]
+}
+
+export interface ReplacementPatternModel {
+    search: string,
+    replace: string
 }
 
 export const defaultPatternsModel: PatternsModel = {
@@ -63,7 +68,7 @@ export const defaultPatternsModel: PatternsModel = {
         "((?<!\\n)\\n(?!\\n))|((?<=\\n)\\n)"
     ],
     replacementPatterns: [
-        ['(?<!\\n)\n(?!\\n)', ' \n']
+        { search: '(?<!\\n)\\n(?!\\n)', replace: ' \\n' }
     ],
     breakPatterns: [
         '[?!.]'
@@ -102,15 +107,20 @@ async function populateBaseData(db: IDBPDatabase<AppDbSchema>) {
 }
 
 export const dbPromise = (async function() {
-    const db = await openDB<AppDbSchema>('keypresses', 7, {
+    const db = await openDB<AppDbSchema>('keypresses', 12, {
         async upgrade(db, old, _new, tx) {
-            if (!db.objectStoreNames.contains('keypresses')) {
-                db.createObjectStore('keypresses', {
+            // keypresses
+            let pressesStore = db.objectStoreNames.contains('keypresses')
+                ? tx.objectStore('keypresses')
+                : db.createObjectStore('keypresses', {
                     keyPath: 'id',
                     autoIncrement: true
                 });
+            if (!pressesStore.indexNames.contains('by-sequenceId')) {
+                pressesStore.createIndex('by-sequenceId', 'sequenceId', { unique: false });
             }
 
+            // sequences
             if (!db.objectStoreNames.contains('sequences')) {
                 db.createObjectStore('sequences', {
                     keyPath: 'id'
@@ -121,12 +131,21 @@ export const dbPromise = (async function() {
             const textStore = db.objectStoreNames.contains('texts')
                 ? tx.objectStore('texts')
                 : db.createObjectStore('texts', {
-                keyPath: 'id',
-                autoIncrement: true
-            });
+                    keyPath: 'id',
+                    autoIncrement: true
+                });
             if (!textStore.indexNames.contains('by-name')) {
                 textStore.createIndex('by-name', 'name', { unique: false });
             }
+            let texts = await textStore.getAll();
+            texts = texts.map((t: any) => ({ ...t,
+                patterns: {
+                    ...t.patterns,
+                    replacementPatterns: t.patterns.replacementPatterns.map(([search, replace]) => ({ search, replace }))
+                }
+            }));
+            textStore.clear();
+            await Promise.all(texts.map(t => textStore.put(t)));
         }
     });
 

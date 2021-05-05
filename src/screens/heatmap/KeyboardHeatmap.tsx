@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { useCallback, useState } from 'react';
-import { KeyInfo, statisctisService } from '../../domain/statisticsService';
+import { KeyInfo, statisctisService, TyposInfo } from '../../domain/statisticsService';
 import { lazyKeymap } from './keymap';
 import { Dictionary } from 'lodash';
-import { Key, mergeHeat } from './Key';
+import { Key, mergeHeat, stepsColors } from './Key';
 import ReactTooltip from 'react-tooltip';
+import { Loading } from '../../common/Loading';
 
 function colorGradient(fadeFraction, rgbColor1, rgbColor2, rgbColor3) {
     var color1 = rgbColor1;
@@ -39,24 +40,36 @@ function colorGradient(fadeFraction, rgbColor1, rgbColor2, rgbColor3) {
 
 export function KeyboardHeatmap() {
     const [map, setMap] = useState<Dictionary<KeyInfo>>(null);
+    // const [typos, setTypos] = useState<TyposInfo>(null);
+
     const getTooltip = useCallback((data: string) => {
         if (!data) return null;
         let key = lazyKeymap().charToKeys[data];
-        let heatmap = mergeHeat(key.chars.map(c => map[c]));
+        let heat = mergeHeat(key.chars.map(c => map[c]));
+        console.log({ heat });
         return <>
             <span>Key: { key.chars.join('  ')}</span><br/>
-            <span>Encountered: { heatmap.total }</span><br/>
-            <span>Typos: { heatmap.misstypes }</span><br/>
+            <span>Encountered: { heat.total }</span><br/>
+            <span>Typos: { heat.misstypes }</span><br/>
         </>
     }, [map])
 
     if (!map) {
         statisctisService.getFailmap().then(setMap);
-        return <span>loading...</span>
+        // statisctisService.getTotalTyposClassification().then(setTypos);
+        return <div style={{ width: '80vw', height: '20vh' }}>
+            <Loading />
+        </div>
     }
 
     return <>
-        <svg viewBox={'0 0 1000 320'} style={{ width: '80vw' }}>
+        <svg viewBox={'0 0 1000 320'} style={{ width: '80vw', minHeight: '30vh' }}>
+            <defs>
+                <linearGradient id={'grad'}>
+                    { stepsColors.map((c, idx) => <stop style={{ stopColor: c, stopOpacity: 1}} key={idx} offset={`${(idx + 1) / c.length * 100}%`}/>) }
+                </linearGradient>
+            </defs>
+
             {
                 lazyKeymap()
                     .keyboard.map((row, rowIdx) =>
@@ -65,8 +78,9 @@ export function KeyboardHeatmap() {
                     )
                     .flat()
             }
+            <rect x="3" y="310" width="996" height="5" fill="url(#grad)" stroke="black"/>
         </svg>
-        <ReactTooltip getContent={getTooltip} />
+        <ReactTooltip getContent={getTooltip}  />
     </>
 }
 

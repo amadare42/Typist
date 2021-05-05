@@ -5,6 +5,22 @@ a s d f g h j k l ;: '" \\|
 z x c v b n m ,< .> /?
 `;
 
+export function areNeighbors(char1: string, char2: string) {
+    let keyboardMap = lazyKeymap();
+    let key = keyboardMap.charToKeys[char1];
+    if (!key) return false;
+
+    for (let x = key.col - 1; x <= key.col + 1; x++) {
+        for (let y = key.row - 1; y <= key.row +1; y++){
+            let neighborCandidate = keyboardMap.keyboard[x]?.[y];
+            if (!neighborCandidate) continue;
+            if (neighborCandidate.chars.includes(char2)) return true;
+        }
+    }
+
+    return false;
+}
+
 export const lazyKeymap = (() => {
     let keyboard: KeyboardMap = null;
     return () => {

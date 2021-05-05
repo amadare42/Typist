@@ -25,5 +25,7 @@ export function PatternsEdit(props: Props) {
         })
     }, [save, activeText]);
 
-    return <JsonEditorForm obj={json} onSave={onJsonChange} />
+    return <>
+        <JsonEditorForm obj={json} onSave={onJsonChange} />
+    </>
 }

@@ -1,5 +1,5 @@
-import React = require("react");
+import * as React from 'react';
 
 export function Loading() {
-    return <div>Loading...</div>;
+    return <div className="loading loading-lg p-centered"></div>;
 }

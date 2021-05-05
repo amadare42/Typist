@@ -2,10 +2,10 @@ import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { CharState, TypingCharacter } from './TypingCharacter';
 import { Stats } from './Stats';
-import * as _ from 'lodash';
 import { findPatterns } from './textParsing';
 import { BACKSPACE, statisctisService } from '../../domain/statisticsService';
 import { playFail, playSuccess } from './typingAudio';
+import { Progress } from '../../common/Progress';
 
 
 interface Props {
@@ -71,20 +71,6 @@ function mapText(text: string, notPrintablePatterns?: string[]) {
     return chars;
 }
 
-function getPrevChars(state: State) {
-    let result = [];
-    for (let i = state.currentIdx - 1; i >= 0; i--)
-    {
-        const char = state.chars[i];
-        if (!char.printable || state.currentIdx - i > 4) {
-            break;
-        }
-        result.push(char.char);
-    }
-    return result.reverse();
-}
-
-
 export function TypingPage(props: Props) {
 
     const [state, setState] = useState<State>(() => {
@@ -130,6 +116,7 @@ export function TypingPage(props: Props) {
 
             if (e.key == "Enter" && savedState.completedTime) {
                 props.nextPage();
+                return;
             }
             const timestamp = Date.now();
 
@@ -150,14 +137,11 @@ export function TypingPage(props: Props) {
                         if (chars[nextIdx].printable) break;
                     }
 
-
-                    if (state.timestamps.length) {
-                        statisctisService.reportPress({
-                            character: enteredChar,
-                            expectedCharacter: state.chars[state.currentIdx].char,
-                            delay: timestamp - state.timestamps[state.timestamps.length - 1]
-                        })
-                    }
+                    statisctisService.reportPress({
+                        character: enteredChar,
+                        expectedCharacter: state.chars[state.currentIdx].char,
+                        delay: state.timestamps.length ? (timestamp - state.timestamps[state.timestamps.length - 1]) : 0
+                    });
 
                     return {
                         ...state,
@@ -190,14 +174,15 @@ export function TypingPage(props: Props) {
                         if (chars[nextIdx].printable) break;
                     }
 
-
                     if (!chars[nextIdx].printable) return state;
 
-                    statisctisService.reportPress({
-                        character: BACKSPACE,
-                        expectedCharacter: state.chars[state.currentIdx].char,
-                        delay: state.timestamps.length ? timestamp - state.timestamps[state.timestamps.length - 1] : 0
-                    });
+                    if (nextIdx != currentIdx) {
+                        statisctisService.reportPress({
+                            character: BACKSPACE,
+                            expectedCharacter: state.chars[nextIdx].char,
+                            delay: state.timestamps.length ? timestamp - state.timestamps[state.timestamps.length - 1] : 0
+                        });
+                    }
 
                     return {
                         ...state,
@@ -230,9 +215,12 @@ export function TypingPage(props: Props) {
         }
     }, [])
 
+    useEffect(() => document.querySelector('span.active')?.scrollIntoView(), [state.currentIdx])
+
     return <div>
         <Stats timestamps={state.timestamps} startedAt={state.startedAt} errors={state.errors} completedTime={state.completedTime} />
-        <div style={{ display: 'flex', justifyContent: 'center'}}>
+        <Progress value={state.currentIdx} max={state.chars.length - 1} />
+        <div style={{ display: 'flex', justifyContent: 'center', maxHeight: '70vh', minHeight: '20vh', overflowY: 'auto'}}>
             <div>
                 { state.chars.map((c, i) => {
                     return <TypingCharacter char={ c } key={ i }/>;
