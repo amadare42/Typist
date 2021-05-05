@@ -88,8 +88,9 @@ interface KeyProps {
 }
 
 export function mergeHeat(heat: KeyInfo[]): KeyInfo {
-    if (!heat || !heat.length) return heat as any;
+    if (!heat || !heat.length) return { misstypes: 0, total: 0, ratio: 0 };
     if (heat.length == 1) return heat[0];
+
     let misstypes = heat.reduce((acc, v) => acc + (v?.misstypes || 0), 0);
     let total = heat.reduce((acc, v) => acc + (v?.total || 0), 0);
     // console.log(heat);

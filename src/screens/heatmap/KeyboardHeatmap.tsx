@@ -45,8 +45,9 @@ export function KeyboardHeatmap() {
     const getTooltip = useCallback((data: string) => {
         if (!data) return null;
         let key = lazyKeymap().charToKeys[data];
-        let heat = mergeHeat(key.chars.map(c => map[c]));
-        console.log({ heat });
+        let heat = mergeHeat(key.chars.map(c => map[c]).filter(m => m));
+        if (!heat) return null;
+
         return <>
             <span>Key: { key.chars.join('  ')}</span><br/>
             <span>Encountered: { heat.total }</span><br/>
