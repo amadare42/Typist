@@ -37,8 +37,9 @@
   },
   "scripts": {
     "serve": "webpack serve",
-    "build": "webpack build -- --mode=production",
-    "publish": "node publish.js",
+    "build": "webpack build -- --mode=production --env no_stats",
+    "build-analyze": "webpack build -- --mode=production",
+    "publish": "npm run build && node publish.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

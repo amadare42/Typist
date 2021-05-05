@@ -4,7 +4,7 @@ import * as path from 'path';
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
-const config: webpack.Configuration = {
+const config: (env: any, options: any) => webpack.Configuration = (env, options) => ({
     resolve: {
         extensions: ['.ts', '.tsx', '.js']
     },
@@ -44,8 +44,10 @@ const config: webpack.Configuration = {
             template: path.resolve(__dirname, 'src/index.html'),
             filename: 'index.html'
         }),
-        new BundleAnalyzerPlugin()
+        new BundleAnalyzerPlugin({
+            analyzerMode: env.no_stats ? 'disabled' : 'server'
+        })
     ]
-}
+});
 
 module.exports = config;
