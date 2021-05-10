@@ -14,7 +14,12 @@ interface Props {
 interface State {
     pages: string[],
     currentPage: number,
-    pageInput: string
+    pageInput: string,
+    updateIdx: number
+}
+
+function stopPropagation(e) {
+    e.stopPropagation();
 }
 
 function savePosition(id: number, pages: string[], currentPage: number) {
@@ -36,7 +41,8 @@ export function Pager(props: Props) {
         return ({
             pages,
             currentPage: activePage,
-            pageInput: (activePage + 1).toString()
+            pageInput: (activePage + 1).toString(),
+            updateIdx: 0
         });
     });
 
@@ -47,11 +53,12 @@ export function Pager(props: Props) {
         setState(state => {
             savePosition(props.textModel.id, state.pages, page);
             statisctisService.newSequence(props.textModel.id, props.textModel.name);
-            return { ...state, ...stateMixin, currentPage: page, pageInput: (page + 1).toString() };
+            return { ...state, ...stateMixin, currentPage: page, pageInput: (page + 1).toString(), updateIdx: state.updateIdx + 1 };
         });
     }, [props]);
 
     const onPageInputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        e.stopPropagation();
         let page = parseInt(e.target.value);
         if (!page || isNaN(page) || page < 1 || page > state.pages.length) {
             setState(state => ({ ...state, pageInput: e.target.value }));
@@ -75,19 +82,27 @@ export function Pager(props: Props) {
 
     useEffect(() => {
         let keyUp = k => {
-            if (k.key == 'ArrowLeft') {
-                k.preventDefault();
-                prevPage();
-            } else if (k.key == 'ArrowRight') {
-                k.preventDefault();
-                nextPage();
+            switch (k.key) {
+                case 'ArrowLeft':
+                    k.preventDefault();
+                    prevPage();
+                    break;
+                case 'ArrowRight':
+                    k.preventDefault();
+                    nextPage();
+                    break;
+                case 'ArrowUp':
+                    k.preventDefault();
+                    setState(state => ({...state, updateIdx: state.updateIdx + 1}));
+                    statisctisService.newSequence(props.textModel.id, props.textModel.name);
+                    break;
             }
         };
         document.addEventListener('keyup', keyUp);
         return () => {
             document.removeEventListener('keyup', keyUp);
         }
-    }, [prevPage, nextPage]);
+    }, [prevPage, nextPage, changePage, props]);
 
     const { pages, currentPage } = state;
     const percentage = useMemo(() => {
@@ -105,17 +120,19 @@ export function Pager(props: Props) {
     }
 
     return <div>
-        <TypingPage text={pages[currentPage]} nextPage={nextPage} key={state.currentPage} ignorePatterns={props.textModel.patterns.ignorePatterns} />
+        <TypingPage text={pages[currentPage]} nextPage={nextPage} key={state.updateIdx}
+                    ignorePatterns={props.textModel.patterns.ignorePatterns} />
         <hr />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
             <div>
                 Page
                 <button onClick={prevPage} onMouseDown={noFocus} className={'btn'}>{"<"}</button>
-                <input className={'page-input'} value={state.pageInput} onChange={onPageInputChanged} /> / { state.pages.length }
+                <input onKeyDown={stopPropagation} onKeyUp={stopPropagation} className={'page-input'} value={state.pageInput} onChange={onPageInputChanged} />
+                / <span style={{width: '3em'}}>{ state.pages.length }</span>
                 <button onClick={nextPage} onMouseDown={noFocus} className={'btn'}>{">"}</button>
             </div>
             <span>{ pages[currentPage].length } chars</span>
-            <span>{percentage}%</span>
+            <span>{ percentage }%</span>
         </div>
     </div>
 }

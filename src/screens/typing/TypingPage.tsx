@@ -6,6 +6,7 @@ import { findPatterns } from './textParsing';
 import { BACKSPACE, statisctisService } from '../../domain/statisticsService';
 import { playFail, playSuccess } from './typingAudio';
 import { Progress } from '../../common/Progress';
+import { renderErrorChar } from './errorCharacter';
 
 
 interface Props {
@@ -129,7 +130,8 @@ export function TypingPage(props: Props) {
                     if (isCorrect) {
                         playSuccess();
                     } else {
-                        playFail()
+                        playFail();
+                        renderErrorChar(document.querySelector('span.active'), enteredChar);
                     }
                     let nextIdx = currentIdx;
                     while (nextIdx < chars.length - 1) {
@@ -215,9 +217,12 @@ export function TypingPage(props: Props) {
         }
     }, [])
 
-    useEffect(() => document.querySelector('span.active')?.scrollIntoView(), [state.currentIdx])
+    useEffect(() => document.querySelector('span.active')?.scrollIntoView(), [state.currentIdx]);
+    useEffect(() => {
+        document.getElementById('typing-container').focus();
+    }, []);
 
-    return <div>
+    return <div id={'typing-container'}>
         <Stats timestamps={state.timestamps} startedAt={state.startedAt} errors={state.errors} completedTime={state.completedTime} />
         <Progress value={state.currentIdx} max={state.chars.length - 1} />
         <div style={{ display: 'flex', justifyContent: 'center', maxHeight: '70vh', minHeight: '20vh', overflowY: 'auto'}}>

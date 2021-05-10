@@ -3,6 +3,7 @@ import { ActiveTextModel, textsService } from '../../domain/textsService';
 import { useEffect, useState } from 'react';
 import { Loading } from '../../common/Loading';
 import { Pager } from './Pager';
+import './typing-screen.css';
 
 export function TypingScreen() {
     const [activeText, setActiveText] = useState<ActiveTextModel | 'loading'>('loading')

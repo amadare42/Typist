@@ -4,14 +4,13 @@ import classnames from 'classnames';
 
 import ContentEditable, { ContentEditableEvent } from 'react-contenteditable'
 
-
 import './texts-screen.css';
 import { defaultPageThreshold, defaultPatternsModel, TextModel } from '../../domain/db';
 import { textsService } from '../../domain/textsService';
 import * as _ from 'lodash';
 import { PatternsEdit } from './PattersEdit';
-import * as ReactModal from 'react-modal';
 import classNames from 'classnames';
+import { Modal } from '../../common/Modal';
 
 function stripHtml(html) {
     let tmp = document.createElement('DIV');
@@ -90,6 +89,7 @@ export function TextsScreen(props: Props) {
     let onTextAreaChange = useCallback(e => throttledUpdate(stripHtml(currentTextModel.name), stripHtml(e.target.value)), [throttledUpdate]);
     const onMakeActiveClick = useCallback(e => {
         textsService.setActiveTextId(e.currentTarget.getAttribute('data-id'));
+        update(s => s + 1);
     }, []);
     return <div className={ 'texts-screen' }>
         <div className={ 'item-container' }>
@@ -130,36 +130,14 @@ export function TextsScreen(props: Props) {
                                             onChangeCallback={ onTextAreaChange }/>
                 }
             </div>
-            <ReactModal
-                isOpen={ patternEditorVisible }
-                contentLabel={ `Configuration for ${ currentTextModel?.text }` }
-            >
-                <button style={ {
-                    position: 'absolute',
-                    right: 0,
-                    top: 0,
-                    margin: '1vmin',
-                    zIndex: 9999999,
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                } } className={ 'btn s-circle' } onClick={ closeModal }>
-                    <i className="icon icon-cross"/>
-                </button>
-                <div style={ { height: '10%' } }>
-                    <span>{ `Configuration for '${ currentTextModel?.name }'` }</span>
-                    <hr/>
-                </div>
-                <div style={ { overflowY: 'scroll', maxHeight: '80%' } }>
-                    <PatternsEdit activeText={ currentTextModel } save={ text => textsService.updateText(text)
-                        .then(textsService.getTexts)
-                        .then(setTexts)
-                        .then(closeModal)
-                    }/>
-                </div>
-            </ReactModal>
+            <Modal title={`Configuration for ${ currentTextModel?.name }`} shown={patternEditorVisible} onClose={closeModal}>
+                <PatternsEdit activeText={ currentTextModel } save={ text => textsService.updateText(text)
+                    .then(textsService.getTexts)
+                    .then(setTexts)
+                    .then(closeModal)
+                }/>
+            </Modal>
         </div>
-
-
     </div>
 }
 

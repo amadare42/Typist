@@ -1,0 +1,62 @@
+.error-char-anim {
+    animation: error-char-0 200ms;
+}
+
+span.error-char {
+    color: red;
+    font-size: 3vmin;
+    text-shadow: 0px 0px 4px #000;
+    font-weight: bold;
+}
+
+@keyframes error-char-0 {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(30px, 30px);
+        opacity: 0;
+    }
+}
+
+@keyframes error-char-1 {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-30px, 30px);
+        opacity: 0;
+    }
+}
+@keyframes error-char-2 {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-30px, -30px);
+        opacity: 0;
+    }
+}
+@keyframes error-char-3 {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(30px, -30px);
+        opacity: 0;
+    }
+}
+@keyframes error-char-4 {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(0px, 30px);
+        opacity: 0;
+    }
+}

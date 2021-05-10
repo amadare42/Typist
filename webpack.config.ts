@@ -35,7 +35,7 @@ const config: (env: any, options: any) => webpack.Configuration = (env, options)
     devServer: {
         port: 3010,
         disableHostCheck: true,
-        host: '10.160.32.104',//your ip address
+        // host: '10.160.32.104',//your ip address
     },
     plugins: [
         new webpack.HotModuleReplacementPlugin(),
